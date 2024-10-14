@@ -1,0 +1,12 @@
+[workspace]
+members = ["example", "mangga", "mangga-macro"]
+resolver = "2"
+
+[workspace.package]
+authors = ["Ade M Ramdani <qcynaut@gmail.com>"]
+license-file = "LICENSE"
+categories = ["database", "mongodb", "odm"]
+description = "MongoDB ODM"
+keywords = ["mongodb", "odm", "mongodb-odm"]
+repository = "https://github.com/qcynaut/mangga"
+readme = "README.md"
