@@ -15,7 +15,7 @@ impl Default for DateTime {
 impl DateTime {
     /// Get now
     pub fn now() -> Self {
-        Self(bson::DateTime::from(Utc::now()))
+        Self(bson::DateTime::now())
     }
 }
 
@@ -47,13 +47,13 @@ impl<'de> Deserialize<'de> for DateTime {
 
 impl From<chrono::DateTime<Utc>> for DateTime {
     fn from(dt: chrono::DateTime<Utc>) -> Self {
-        Self(bson::DateTime::from(dt))
+        Self(dt.into())
     }
 }
 
 impl From<DateTime> for chrono::DateTime<Utc> {
     fn from(dt: DateTime) -> Self {
-        chrono::DateTime::from(dt.0)
+        dt.0.into()
     }
 }
 
@@ -61,8 +61,8 @@ impl From<DateTime> for chrono::DateTime<Utc> {
 impl async_graphql::ScalarType for DateTime {
     fn parse(value: async_graphql::Value) -> async_graphql::InputValueResult<Self> {
         if let async_graphql::Value::String(s) = &value {
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s) {
-                return Ok(Self(bson::DateTime::from_chrono(dt)));
+            if let Ok(dt) = bson::DateTime::parse_rfc3339_str(s) {
+                return Ok(Self(dt));
             }
         }
 
@@ -70,6 +70,6 @@ impl async_graphql::ScalarType for DateTime {
     }
 
     fn to_value(&self) -> async_graphql::Value {
-        async_graphql::Value::String(chrono::DateTime::from(self.0).to_rfc3339())
+        async_graphql::Value::String(self.0.to_chrono().to_rfc3339())
     }
 }
