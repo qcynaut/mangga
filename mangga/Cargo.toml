@@ -12,7 +12,7 @@ readme.workspace = true
 
 [dependencies]
 async-graphql = "7.0.7"
-bson = "2.11.0"
+bson = { version = "2.11.0", features = ["chrono"] }
 chrono = "0.4.38"
 futures = "0.3.30"
 mangga-macro = { path = "../mangga-macro" }
