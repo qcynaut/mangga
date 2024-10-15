@@ -41,7 +41,7 @@ pub trait AsExpression {
 /// ManggaDoc
 pub trait ManggaDoc: Sized {
     type Model: Model;
-    const INDEXES: &'static [(&'static str, &'static str, i32, bool)] = &[];
+    const INDEXES: &'static [(&'static str, &'static str, i32, bool, Option<u64>)] = &[];
 
     /// Create raw filter
     fn raw_filter(
@@ -75,7 +75,7 @@ pub trait ManggaDoc: Sized {
         all_indexes.sort();
         let mut local_indexes = Self::INDEXES
             .into_iter()
-            .map(|(_, name, _, _)| name.to_string())
+            .map(|(_, name, _, _,_)| name.to_string())
             .collect::<Vec<_>>();
         local_indexes.sort();
         if all_indexes == local_indexes {
@@ -107,19 +107,23 @@ pub trait ManggaDoc: Sized {
         if !new_indexes.is_empty() {
             let mut indexes = vec![];
             for name in new_indexes {
-                let index = Self::INDEXES.iter().find(|(_, n, _, _)| *n == &name);
-                if let Some((field, name, score, unique)) = index {
+                let index = Self::INDEXES.iter().find(|(_, n, _, _, _)| *n == &name);
+                if let Some((field, name, score, unique, exp)) = index {
                     let field = &field.to_string();
                     let score = if *score == -1 { -1 } else { 1 };
+                    let index_options_builder = mongodb::options::IndexOptions::builder()
+                    .name(name.to_string())
+                    .unique(*unique);
+
+                    let index_options = if let Some(exp) = exp {
+                        index_options_builder.expire_after(std::time::Duration::from_secs(*exp)).build()
+                    } else {
+                        index_options_builder.build()
+                    };
                     indexes.push(
                         mongodb::IndexModel::builder()
                             .keys(bson::doc! {field: score})
-                            .options(
-                                mongodb::options::IndexOptions::builder()
-                                    .name(name.to_string())
-                                    .unique(*unique)
-                                    .build(),
-                            )
+                            .options(index_options)
                             .build(),
                     );
                 }

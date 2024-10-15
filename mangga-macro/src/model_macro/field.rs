@@ -87,6 +87,7 @@ pub struct FieldIndex {
     pub name: String,
     pub score: i32,
     pub unique: bool,
+    pub exp: Option<u64>,
 }
 
 impl Parse for FieldIndex {
@@ -95,6 +96,7 @@ impl Parse for FieldIndex {
         syn::braced!(curly in input);
         let mut name = None;
         let mut score = 1;
+        let mut exp = None;
         let mut unique = false;
         while !curly.is_empty() {
             let ident = curly.parse::<syn::Ident>()?;
@@ -110,6 +112,10 @@ impl Parse for FieldIndex {
                 "unique" => {
                     let _ = curly.parse::<syn::Token![:]>()?;
                     unique = curly.parse::<syn::LitBool>()?.value;
+                }
+                "exp" => {
+                    let _ = curly.parse::<syn::Token![:]>()?;
+                    exp = Some(curly.parse::<syn::LitInt>()?.base10_parse()?);
                 }
                 _ => return Err(syn::Error::new(ident.span(), "Invalid field index")),
             }
@@ -129,6 +135,7 @@ impl Parse for FieldIndex {
             name,
             score,
             unique,
+            exp,
         })
     }
 }

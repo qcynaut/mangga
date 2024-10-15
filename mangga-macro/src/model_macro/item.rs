@@ -99,7 +99,12 @@ impl Item {
                         let name = &index.name;
                         let score = index.score;
                         let unique = index.unique;
-                        Some(quote! {(#ident,#name,#score,#unique)})
+                        let exp = if let Some(exp) = index.exp {
+                            quote! {Some(#exp)}
+                        } else {
+                            quote! {None}
+                        };
+                        Some(quote! {(#ident,#name,#score,#unique,#exp)})
                     } else {
                         None
                     }
@@ -117,7 +122,7 @@ impl Item {
                 pub struct doc;
                 impl ::mangga::ManggaDoc for doc {
                     type Model = #ident;
-                    const INDEXES: &[(&'static str, &'static str, i32, bool)] = &[#indexes];
+                    const INDEXES: &[(&'static str, &'static str, i32, bool, Option<u64>)] = &[#indexes];
                 }
 
                 #fields
