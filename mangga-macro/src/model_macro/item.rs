@@ -181,6 +181,11 @@ impl Item {
             });
         }
 
-        tokens
+        quote! {
+            const _: () = {
+                use ::mangga::prelude::*;
+                #tokens
+            };
+        }
     }
 }
