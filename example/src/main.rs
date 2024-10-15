@@ -8,6 +8,7 @@ pub struct User {
     #[model(index = {unique: true})]
     pub email: String,
     pub age: i32,
+    pub created_at: DateTime,
 }
 
 #[model("categories", graphql)]
@@ -38,8 +39,8 @@ async fn main() {
     user::doc.init().await.unwrap();
 
     let users = vec![
-        User::new("John Doe", "j@j.com", 30),
-        User::new("Jane Doe", "ja@j.com", 29),
+        User::new("John Doe", "j@j.com", 30, DateTime::now()),
+        User::new("Jane Doe", "ja@j.com", 29, DateTime::now()),
     ];
     let categories = vec![
         Category::new("Category 1", "Description 1"),

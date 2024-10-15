@@ -62,7 +62,7 @@ impl async_graphql::ScalarType for DateTime {
     fn parse(value: async_graphql::Value) -> async_graphql::InputValueResult<Self> {
         if let async_graphql::Value::String(s) = &value {
             if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s) {
-                return Ok(Self(bson::DateTime::from(dt)));
+                return Ok(Self(bson::DateTime::from_chrono(dt)));
             }
         }
 
