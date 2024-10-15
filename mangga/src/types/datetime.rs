@@ -19,6 +19,44 @@ impl DateTime {
     }
 }
 
+impl Deref for DateTime {
+    type Target = bson::DateTime;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Serialize for DateTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for DateTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        bson::DateTime::deserialize(deserializer).map(Self)
+    }
+}
+
+impl From<chrono::DateTime<Utc>> for DateTime {
+    fn from(dt: chrono::DateTime<Utc>) -> Self {
+        Self(bson::DateTime::from(dt))
+    }
+}
+
+impl From<DateTime> for chrono::DateTime<Utc> {
+    fn from(dt: DateTime) -> Self {
+        chrono::DateTime::from(dt.0)
+    }
+}
+
 #[async_graphql::Scalar]
 impl async_graphql::ScalarType for DateTime {
     fn parse(value: async_graphql::Value) -> async_graphql::InputValueResult<Self> {
