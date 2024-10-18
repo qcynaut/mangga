@@ -1,13 +1,14 @@
 mod db;
+pub(crate) mod operations;
 mod traits;
 mod types;
-pub(crate) mod operations;
 
 pub use types::{Error, Result};
 
 pub mod prelude {
     pub use crate::{
         db::{connect_database, get_database},
+        operations::{Filter, Queryable},
         traits::*,
         types::{is_id, ID},
     };

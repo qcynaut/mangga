@@ -1,46 +1,28 @@
-use super::DatabaseName;
-use crate::{db::get_database, operations::InsertOne, Result};
+use super::Model;
+use crate::operations::{DeleteOne, InsertOne};
 use bson::doc;
 use serde::Serialize;
 
 /// Insertable
 ///
 /// Allows to insert current model
-pub trait Insertable: DatabaseName + Serialize {
+pub trait Insertable: Model + Serialize {
     /// Insert current model
-    fn insert(&self) -> InsertOne<Self>;
+    fn insert(&self) -> InsertOne<Self> {
+        InsertOne::new(self)
+    }
 }
 
 /// Deletable
 ///
 /// Allows to delete current model
-pub trait Deletable {
+pub trait Deletable: Model + Serialize {
     /// Delete current model
-    async fn delete(&self) -> Result<()>;
-}
-
-impl<T> Insertable for T
-where
-    T: DatabaseName + Serialize,
-{
-    fn insert(&self) -> InsertOne<Self> {
-        InsertOne {
-            opts: None,
-            data: self,
-        }
+    fn delete(&self) -> DeleteOne<Self> {
+        DeleteOne::new(doc! {"_id": self.id().into()})
     }
 }
 
-impl<T> Deletable for T
-where
-    T: DatabaseName + Serialize,
-{
-    async fn delete(&self) -> Result<()> {
-        let db = get_database(T::DATABASE_NAME)?;
-        let col = db.collection::<T>(T::MODEL_NAME);
-        let id = self.id().into();
-        col.delete_one(doc! {"_id": id}).await?;
+impl<T> Insertable for T where T: Model + Serialize {}
 
-        Ok(())
-    }
-}
+impl<T> Deletable for T where T: Model + Serialize {}

@@ -8,19 +8,14 @@ pub trait Model: Default + Clone + Send + Sync + 'static {
     /// Name of the model
     const MODEL_NAME: &'static str;
 
+    /// Database name of the model
+    const DB_NAME: &'static str;
+
     /// Get id
     fn id(&self) -> impl Into<ID>;
 
     /// Get dsl of the model
     fn dsl() -> impl Dsl<Self>;
-}
-
-/// DatabaseName
-///
-/// Represents the name of the database
-pub trait DatabaseName: Model {
-    /// Name of the database
-    const DATABASE_NAME: &'static str;
 }
 
 /// Dsl

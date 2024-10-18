@@ -1,9 +1,4 @@
-use crate::{
-    db::get_database,
-    traits::{DatabaseName, Model},
-    types::BoxFut,
-    Result,
-};
+use crate::{db::get_database, traits::Model, types::BoxFut, Result};
 use mongodb::options::{
     InsertManyOptions,
     InsertManyOptionsBuilder,
@@ -20,11 +15,19 @@ use std::{
 ///
 /// Represents the insert one operation
 pub struct InsertOne<'a, M: Model> {
-    pub(crate) opts: Option<InsertOneOptions>,
-    pub(crate) data: &'a M,
+    opts: Option<InsertOneOptions>,
+    data: &'a M,
 }
 
-impl<M: Model> InsertOne<'_, M> {
+impl<'a, M: Model> InsertOne<'a, M> {
+    /// Create a new insert one operation
+    pub fn new(data: &'a M) -> Self {
+        Self {
+            opts: None,
+            data,
+        }
+    }
+
     /// Set insert one options
     pub fn opts<F>(mut self, f: F) -> Self
     where
@@ -37,7 +40,7 @@ impl<M: Model> InsertOne<'_, M> {
 
 impl<M: Model> IntoFuture for InsertOne<'_, M>
 where
-    M: DatabaseName + Serialize,
+    M: Serialize,
 {
     type IntoFuture = InsertOneFuture;
     type Output = Result<()>;
@@ -46,7 +49,7 @@ where
         let data = self.data.clone();
         let opts = self.opts;
         let future = Box::pin(async move {
-            let db = get_database(M::DATABASE_NAME)?;
+            let db = get_database(M::DB_NAME)?;
             let col = db.collection(M::MODEL_NAME);
             col.insert_one(data).with_options(opts).await?;
 
@@ -77,11 +80,19 @@ impl Future for InsertOneFuture {
 ///
 /// Represents the insert many operation
 pub struct InsertMany<M: Model> {
-    pub(crate) data: Vec<M>,
-    pub(crate) opts: Option<InsertManyOptions>,
+    data: Vec<M>,
+    opts: Option<InsertManyOptions>,
 }
 
 impl<M: Model> InsertMany<M> {
+    /// Create a new insert many operation
+    pub fn new(data: Vec<M>) -> Self {
+        Self {
+            data,
+            opts: None,
+        }
+    }
+
     /// Set insert many options
     pub fn opts<F>(mut self, f: F) -> Self
     where
@@ -94,7 +105,7 @@ impl<M: Model> InsertMany<M> {
 
 impl<M: Model> IntoFuture for InsertMany<M>
 where
-    M: DatabaseName + Serialize,
+    M: Serialize,
 {
     type IntoFuture = InsertManyFuture;
     type Output = Result<()>;
@@ -103,7 +114,7 @@ where
         let data = self.data;
         let opts = self.opts;
         let future = Box::pin(async move {
-            let db = get_database(M::DATABASE_NAME)?;
+            let db = get_database(M::DB_NAME)?;
             let col = db.collection(M::MODEL_NAME);
             col.insert_many(data).with_options(opts).await?;
 

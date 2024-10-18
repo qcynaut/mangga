@@ -95,7 +95,7 @@ impl ToTokens for Item {
         let check_id = self.fields.gen_check_id();
         let dsl = self.dsl();
         let mod_ident = self.mod_ident();
-        let new_fn = self.fields.new_fn(vis);
+        let builtin = self.fields.builtin(vis, &mod_ident);
         let id_field_ident = &self.fields.id_field.ident;
 
         let mut code = quote! {};
@@ -104,6 +104,7 @@ impl ToTokens for Item {
             #check_id
             impl Model for #ident {
                 const MODEL_NAME: &'static str = #name;
+                const DB_NAME: &'static str = #db_name;
                 fn id(&self) -> impl Into<ID> {
                     self.#id_field_ident
                 }
@@ -112,26 +113,16 @@ impl ToTokens for Item {
                 }
             }
             impl #ident {
-                #new_fn
+                #builtin
             }
         });
-
-        if let Some(db_name) = db_name {
-            code.extend(quote! {
-                impl DatabaseName for #ident {
-                    const DATABASE_NAME: &'static str = #db_name;
-                }
-            });
-        }
 
         tokens.extend(quote! {
             const _: () = {
                 #[allow(unused_imports)]
                 use ::mangga::prelude::*;
-
-                #code
-
                 #dsl
+                #code
             };
         });
     }

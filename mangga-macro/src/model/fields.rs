@@ -102,24 +102,25 @@ impl ItemFields {
         }
     }
 
-    /// Generate new arguments for creating the struct
-    pub fn new_args(&self) -> (TokenStream, TokenStream) {
+    /// Generate new function
+    pub fn builtin(&self, vis: &Visibility, dsl_name: &Ident) -> TokenStream {
         let mut args = Punctuated::<TokenStream, Token![,]>::new();
         let mut names = Punctuated::<TokenStream, Token![,]>::new();
+        let mut fields = quote! {};
         for field in &self.fields {
             let ident = &field.ident;
             let ty = &field.ty;
             args.push(quote! { #ident: impl Into<#ty> });
             names.push(quote! { #ident: #ident.into() });
+            fields.extend(quote! {
+                #[allow(non_upper_case_globals)]
+                const #ident: #dsl_name::#ident = #dsl_name::#ident;
+            });
         }
-
-        (quote! { #args }, quote! { #names })
-    }
-
-    /// Generate new function
-    pub fn new_fn(&self, vis: &Visibility) -> TokenStream {
-        let (args, names) = self.new_args();
         quote! {
+            #[allow(non_upper_case_globals)]
+            const dsl: #dsl_name::dsl = #dsl_name::dsl;
+            #fields
             #vis fn new(#args) -> Self {
                 Self {
                     #names
@@ -138,7 +139,6 @@ impl ItemFields {
             let field_ty = &field.ty;
             let field_name = field_ident.to_string();
             code.extend(quote! {
-                #[allow(non_camel_case_types, dead_code)]
                 #[derive(Debug, Clone, Copy)]
                 pub struct #field_ident;
                 impl Field for #field_ident {

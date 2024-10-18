@@ -7,14 +7,15 @@ use syn::parse::Parse;
 #[derive(Debug, Clone)]
 pub struct ItemAttrs {
     pub name: String,
-    pub db_name: Option<String>,
+    pub db_name: String,
 }
 
 impl Parse for ItemAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut keys: HashSet<String> = HashSet::new();
+        let span = input.span();
         let mut name = String::new();
-        let mut db_name = None;
+        let mut db_name = String::new();
 
         while !input.is_empty() {
             let id = input.parse::<syn::Ident>()?;
@@ -31,7 +32,7 @@ impl Parse for ItemAttrs {
 
             match &*id_str {
                 "name" => name = input.parse::<syn::LitStr>()?.value(),
-                "db" => db_name = Some(input.parse::<syn::LitStr>()?.value()),
+                "db" => db_name = input.parse::<syn::LitStr>()?.value(),
                 _ => {
                     return Err(syn::Error::new_spanned(
                         id,
@@ -43,6 +44,13 @@ impl Parse for ItemAttrs {
             if !input.is_empty() {
                 input.parse::<syn::Token![,]>()?;
             }
+        }
+
+        if name.is_empty() || db_name.is_empty() {
+            return Err(syn::Error::new(
+                span,
+                "name and db attributes are required",
+            ));
         }
 
         Ok(ItemAttrs { name, db_name })

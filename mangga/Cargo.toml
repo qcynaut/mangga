@@ -12,6 +12,7 @@ readme.workspace = true
 
 [dependencies]
 bson = "2.13.0"
+futures = "0.3.31"
 mangga-macro = { path = "../mangga-macro" }
 mongodb = "3.1.0"
 once_cell = "1.20.2"
