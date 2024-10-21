@@ -8,9 +8,9 @@ pub use types::{Error, Result};
 pub mod prelude {
     pub use crate::{
         db::{connect_database, get_database},
-        operations::{Filter, Queryable},
+        operations::Filter,
         traits::*,
-        types::{is_id, ID},
+        types::{is_id, ID, DateTime},
     };
     pub use bson;
     pub use mangga_macro::Model;

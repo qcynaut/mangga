@@ -1,5 +1,6 @@
 use super::{attrs::ItemAttrs, fields::ItemFields};
 use change_case::snake_case;
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, Data, DeriveInput, Ident, Token};
 
@@ -61,28 +62,6 @@ impl Item {
         let mod_ident = Ident::new(&snake_case(&ident.to_string()), ident.span());
         mod_ident
     }
-
-    /// Generate dsl code
-    pub fn dsl(&self) -> proc_macro2::TokenStream {
-        let mut code = quote! {};
-
-        let ident = &self.ident;
-        let fields = self.fields.impl_fields(ident);
-        let mod_ident = self.mod_ident();
-
-        code.extend(quote! {
-            #[allow(non_camel_case_types, dead_code)]
-            mod #mod_ident {
-                use super::*;
-                #fields
-                #[derive(Debug, Clone, Copy)]
-                pub struct dsl;
-                impl Dsl<#ident> for dsl {}
-            }
-        });
-
-        code
-    }
 }
 
 impl ToTokens for Item {
@@ -93,37 +72,83 @@ impl ToTokens for Item {
 
         // generate code
         let check_id = self.fields.gen_check_id();
-        let dsl = self.dsl();
+        let mut dsl = quote! {};
         let mod_ident = self.mod_ident();
-        let builtin = self.fields.builtin(vis, &mod_ident);
         let id_field_ident = &self.fields.id_field.ident;
 
-        let mut code = quote! {};
+        // builtin
+        let mut builtin_args = Punctuated::<TokenStream, Token![,]>::new();
+        let mut builtin_names = Punctuated::<TokenStream, Token![,]>::new();
+        let mut indexes = Punctuated::<TokenStream, Token![,]>::new();
+        let mut fields = quote! {};
 
-        code.extend(quote! {
-            #check_id
-            impl Model for #ident {
-                const MODEL_NAME: &'static str = #name;
-                const DB_NAME: &'static str = #db_name;
-                fn id(&self) -> impl Into<ID> {
-                    self.#id_field_ident
-                }
-                fn dsl() -> impl Dsl<Self> {
-                    #mod_ident::dsl
-                }
-            }
-            impl #ident {
-                #builtin
-            }
-        });
+        for field in &self.fields.fields {
+            let field_ident = &field.ident;
+            let field_ty = &field.ty;
+            let field_name = &field.name;
 
-        tokens.extend(quote! {
-            const _: () = {
-                #[allow(unused_imports)]
-                use ::mangga::prelude::*;
-                #dsl
-                #code
-            };
-        });
+            // generate dsl
+            dsl.extend(quote! {
+                #[derive(Debug, Clone, Copy)]
+                pub struct #field_ident;
+                impl Field for #field_ident {
+                    type Model = #ident;
+                    const NAME: &'static str = #field_name;
+                    type Type = #field_ty;
+                }
+            });
+
+            // builtin
+            builtin_args.push(quote! { #field_ident: impl Into<#field_ty> });
+            builtin_names.push(quote! { #field_ident: #field_ident.into() });
+            fields.extend(quote! {
+                #[allow(non_upper_case_globals)]
+                const #field_ident: #mod_ident::#field_ident = #mod_ident::#field_ident;
+            });
+
+            for index in &field.attrs.indexes {
+                let token = index.gen(&field.ident);
+                indexes.push(token);
+            }
+        }
+
+        tokens.extend(
+            quote! {
+                const _: () = {
+                    #[allow(unused_imports)]
+                    use ::mangga::prelude::*;
+                    #[allow(non_camel_case_types, dead_code)]
+                    mod #mod_ident {
+                        use super::*;
+                        #dsl
+                        #[derive(Debug, Clone, Copy)]
+                        pub struct dsl;
+                        impl Dsl<#ident> for dsl {}
+                    }
+                    #check_id
+                    impl Model for #ident {
+                        const MODEL_NAME: &'static str = #name;
+                        const DB_NAME: &'static str = #db_name;
+                        const INDEXES: &'static [(&'static str, &'static str, i32, bool, Option<u64>)] = &[#indexes];
+                        fn id(&self) -> impl Into<ID> {
+                            self.#id_field_ident
+                        }
+                        fn dsl() -> impl Dsl<Self> {
+                            #mod_ident::dsl
+                        }
+                    }
+                    impl #ident {
+                        #[allow(non_upper_case_globals)]
+                        const dsl: #mod_ident::dsl = #mod_ident::dsl;
+                        #fields
+                        #vis fn new(#builtin_args) -> Self {
+                            Self {
+                                #builtin_names
+                            }
+                        }
+                    }
+                };
+            }
+        );
     }
 }

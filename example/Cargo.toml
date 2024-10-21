@@ -13,6 +13,7 @@ readme.workspace = true
 [dependencies]
 async-graphql = { version = "7.0.7", features = ["bson"] }
 bson = "2.11.0"
+chrono = "0.4.38"
 dotenvy = "0.15.7"
 futures = "0.3.30"
 mangga = { path = "../mangga" }

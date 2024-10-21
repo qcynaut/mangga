@@ -1,9 +1,11 @@
 pub use error::*;
 pub use id::{is_id, ID};
+pub use datetime::DateTime;
 use std::pin::Pin;
 
 mod error;
 mod id;
+mod datetime;
 
 /// BoxFut
 ///

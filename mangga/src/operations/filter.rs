@@ -1,13 +1,5 @@
-use crate::traits::Field;
+use crate::traits::{AsFilter, Field, Queryable};
 use bson::{doc, Bson, Document};
-
-/// AsFilter
-/// 
-/// Allows expression to be used as filter
-pub trait AsFilter {
-    /// Get the expression as filter
-    fn as_filter(self) -> Document;
-}
 
 // Define the query operators
 pub enum Operator {
@@ -101,54 +93,6 @@ where
 {
     fn as_filter(self) -> Document {
         self.into()
-    }
-}
-
-/// Queryable
-///
-/// Allows a certain field to be queried
-pub trait Queryable: Field + Sized {
-    /// Create `eq` query
-    fn eq<V: Into<Self::Type>>(self, value: V) -> Query<Self, Self::Type> {
-        Query::new(Operator::Eq, value.into())
-    }
-
-    /// Create `lt` query
-    fn lt<V: Into<Self::Type>>(self, value: V) -> Query<Self, Self::Type> {
-        Query::new(Operator::Lt, value.into())
-    }
-
-    /// Create `gt` query
-    fn gt<V: Into<Self::Type>>(self, value: V) -> Query<Self, Self::Type> {
-        Query::new(Operator::Gt, value.into())
-    }
-
-    /// Create `lte` query
-    fn lte<V: Into<Self::Type>>(self, value: V) -> Query<Self, Self::Type> {
-        Query::new(Operator::Lte, value.into())
-    }
-
-    /// Create `gte` query
-    fn gte<V: Into<Self::Type>>(self, value: V) -> Query<Self, Self::Type> {
-        Query::new(Operator::Gte, value.into())
-    }
-
-    /// Create `ne` query
-    fn ne<V: Into<Self::Type>>(self, value: V) -> Query<Self, Self::Type> {
-        Query::new(Operator::Ne, value.into())
-    }
-
-    /// Create `in` query
-    fn is_in<T: Into<Self::Type>, V: IntoIterator<Item = T>>(
-        self,
-        value: V,
-    ) -> Query<Self, Vec<Self::Type>> {
-        Query::new(Operator::In, value.into_iter().map(Into::into).collect())
-    }
-
-    /// Create `nin` query
-    fn nin<T: Into<Self::Type>,V: IntoIterator<Item = T>>(self, value: V) -> Query<Self, Vec<Self::Type>> {
-        Query::new(Operator::Nin, value.into_iter().map(Into::into).collect())
     }
 }
 

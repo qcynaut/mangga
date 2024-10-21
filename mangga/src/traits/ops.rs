@@ -1,5 +1,16 @@
-use super::{Dsl, Model};
-use crate::operations::{AsFilter, Count, DeleteMany, DeleteOne, FindMany, FindOne, InsertMany, InsertOne};
+use super::{AsFilter, Dsl, Model};
+use crate::operations::{
+    Count,
+    DeleteMany,
+    DeleteOne,
+    FindMany,
+    FindOne,
+    InsertMany,
+    InsertOne,
+    UpdateMany,
+    UpdateOne,
+};
+use bson::Bson;
 
 /// Ops
 ///
@@ -22,6 +33,12 @@ pub trait Ops<M: Model> {
 
     /// Delete many models
     fn delete_many<F: AsFilter>(&self, filter: F) -> DeleteMany<M>;
+
+    /// Update one model
+    fn update_one<F: AsFilter>(&self, filter: F, update: Vec<(String, Bson)>) -> UpdateOne<M>;
+
+    /// Update many models
+    fn update_many<F: AsFilter>(&self, filter: F, update: Vec<(String, Bson)>) -> UpdateMany<M>;
 
     /// Count the number of models
     fn count<F: AsFilter>(&self, filter: F) -> Count<M>;
@@ -54,6 +71,14 @@ where
 
     fn delete_many<F: AsFilter>(&self, filter: F) -> DeleteMany<M> {
         DeleteMany::new(filter.as_filter())
+    }
+
+    fn update_one<F: AsFilter>(&self, filter: F, update: Vec<(String, Bson)>) -> UpdateOne<M> {
+        UpdateOne::new(filter.as_filter(), update)
+    }
+
+    fn update_many<F: AsFilter>(&self, filter: F, update: Vec<(String, Bson)>) -> UpdateMany<M> {
+        UpdateMany::new(filter.as_filter(), update)
     }
 
     fn count<F: AsFilter>(&self, filter: F) -> Count<M> {

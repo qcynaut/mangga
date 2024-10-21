@@ -11,7 +11,8 @@ repository.workspace = true
 readme.workspace = true
 
 [dependencies]
-bson = "2.13.0"
+bson = { version = "2.13.0", features = ["chrono-0_4"] }
+chrono = "0.4.38"
 futures = "0.3.31"
 mangga-macro = { path = "../mangga-macro" }
 mongodb = "3.1.0"

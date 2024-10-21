@@ -1,14 +1,105 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{punctuated::Punctuated, spanned::Spanned, Fields, Ident, Token, Visibility};
+use syn::{
+    parse::Parse,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    Fields,
+    Ident,
+    Token,
+    Visibility,
+};
+
+/// FieldIndex
+///
+/// Represents a field index
+#[derive(Debug, Clone)]
+pub struct FieldIndex {
+    pub name: Option<String>,
+    pub unique: bool,
+    pub score: i32,
+    pub exp: Option<u64>,
+}
+
+impl FieldIndex {
+    /// Get token representation
+    pub fn gen(&self, field: &Ident) -> TokenStream {
+        let score = self.score;
+        let unique = self.unique;
+        let exp = &self.exp;
+        let name = if let Some(name) = &self.name {
+            name.to_owned()
+        } else {
+            let exp = if exp.is_some() { "exp" } else { "no-exp" };
+            let unique = if unique { "unique" } else { "no-unique" };
+            format!("mangga_index_{}_{}_{}_{}", field, score, unique, exp)
+        };
+        let field_str = field.to_string();
+        let exp = if let Some(exp) = exp {
+            quote! {Some(#exp)}
+        } else {
+            quote! {None}
+        };
+
+        quote! { (#field_str, #name, #score, #unique, #exp) }
+    }
+}
+
+impl Parse for FieldIndex {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut name = None;
+        let mut unique = false;
+        let mut score = 1;
+        let mut exp = None;
+
+        while !input.is_empty() {
+            let id = input.parse::<syn::Ident>()?;
+            let id_str = id.to_string();
+            input.parse::<syn::Token![=]>()?;
+            match &*id_str {
+                "name" => name = Some(input.parse::<syn::LitStr>()?.value()),
+                "unique" => unique = input.parse::<syn::LitBool>()?.value(),
+                "exp" => exp = Some(input.parse::<syn::LitInt>()?.base10_parse()?),
+                "score" => score = input.parse::<syn::LitInt>()?.base10_parse()?,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        id,
+                        format!("unknown attribute `{}`", id_str),
+                    ))
+                }
+            }
+
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(FieldIndex {
+            name,
+            unique,
+            exp,
+            score,
+        })
+    }
+}
+
+/// FieldAttr
+///
+/// Represents a field attribute
+#[derive(Debug, Clone)]
+pub struct FieldAttr {
+    pub indexes: Vec<FieldIndex>,
+}
 
 /// ItemField
 ///
 /// Represents a field in a struct
 #[derive(Debug, Clone)]
 pub struct ItemField {
+    pub name: String,
     pub ident: syn::Ident,
     pub ty: syn::Type,
+    pub attrs: FieldAttr,
     pub vis: syn::Visibility,
 }
 
@@ -45,10 +136,21 @@ impl ItemFields {
                 None => return Err(syn::Error::new_spanned(field, "Field name is required")),
             };
 
-            let item_field = ItemField {
+            let indexes = field
+                .attrs
+                .iter()
+                .filter(|attr| attr.path().is_ident("index"))
+                .map(|attr| attr.parse_args_with(FieldIndex::parse))
+                .collect::<syn::Result<Vec<_>>>()?;
+
+            let field_attr = FieldAttr { indexes };
+
+            let mut item_field = ItemField {
+                name: ident.to_string(),
                 ident: ident.clone(),
                 ty: field.ty.clone(),
                 vis: field.vis.clone(),
+                attrs: field_attr,
             };
 
             // check if field is _id or has #[serde(rename = "_id")]
@@ -69,6 +171,7 @@ impl ItemFields {
 
                         let list = list.tokens.to_string().replace(" ", "");
                         if list.contains("rename=\"_id\"") {
+                            item_field.name = "_id".to_string();
                             id_found = true;
                             id_field = Some(item_field.clone());
                             break;
@@ -100,55 +203,5 @@ impl ItemFields {
         quote! {
             is_id::<#id_ty>();
         }
-    }
-
-    /// Generate new function
-    pub fn builtin(&self, vis: &Visibility, dsl_name: &Ident) -> TokenStream {
-        let mut args = Punctuated::<TokenStream, Token![,]>::new();
-        let mut names = Punctuated::<TokenStream, Token![,]>::new();
-        let mut fields = quote! {};
-        for field in &self.fields {
-            let ident = &field.ident;
-            let ty = &field.ty;
-            args.push(quote! { #ident: impl Into<#ty> });
-            names.push(quote! { #ident: #ident.into() });
-            fields.extend(quote! {
-                #[allow(non_upper_case_globals)]
-                const #ident: #dsl_name::#ident = #dsl_name::#ident;
-            });
-        }
-        quote! {
-            #[allow(non_upper_case_globals)]
-            const dsl: #dsl_name::dsl = #dsl_name::dsl;
-            #fields
-            #vis fn new(#args) -> Self {
-                Self {
-                    #names
-                }
-            }
-        }
-    }
-
-    /// Generate field implementation
-    pub fn impl_fields(&self, ident: &Ident) -> TokenStream {
-        let fields = &self.fields;
-        let mut code = quote! {};
-
-        for field in fields {
-            let field_ident = &field.ident;
-            let field_ty = &field.ty;
-            let field_name = field_ident.to_string();
-            code.extend(quote! {
-                #[derive(Debug, Clone, Copy)]
-                pub struct #field_ident;
-                impl Field for #field_ident {
-                    type Model = #ident;
-                    const NAME: &'static str = #field_name;
-                    type Type = #field_ty;
-                }
-            });
-        }
-
-        code
     }
 }
