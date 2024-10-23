@@ -124,7 +124,7 @@ impl ToTokens for Item {
             builtin_args.push(quote! { #field_ident: impl Into<#field_ty> });
             builtin_names.push(quote! { #field_ident: #field_ident.into() });
             fields.extend(quote! {
-                const #const_field_ident: #mod_ident::#field_ident = #mod_ident::#field_ident;
+                #vis const #const_field_ident: #mod_ident::#field_ident = #mod_ident::#field_ident;
             });
 
             for index in &field.attrs.indexes {
@@ -226,7 +226,7 @@ impl ToTokens for Item {
                     }
                     impl #ident {
                         #[allow(non_upper_case_globals)]
-                        const dsl: #mod_ident::dsl = #mod_ident::dsl;
+                        #vis const dsl: #mod_ident::dsl = #mod_ident::dsl;
                         #fields
                         #vis fn new(#builtin_args) -> Self {
                             Self {
