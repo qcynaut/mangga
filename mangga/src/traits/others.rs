@@ -1,8 +1,6 @@
-use bson::{bson, doc, Bson, Document};
-
-use crate::operations::{Operator, Query};
-
 use super::Field;
+use crate::operations::{Operator, Query};
+use bson::{bson, doc, Bson, Document};
 
 /// AsFilter
 ///

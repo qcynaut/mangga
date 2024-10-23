@@ -47,28 +47,6 @@ impl<F, V> Query<F, V> {
             _field: std::marker::PhantomData,
         }
     }
-
-    /// Create or from query
-    pub fn or<FF, VV>(self, other: Query<FF, VV>) -> Filter
-    where
-        F: Field,
-        FF: Field,
-        V: Into<Bson>,
-        VV: Into<Bson>,
-    {
-        Filter::new().or(self).or(other)
-    }
-
-    /// Create and from query
-    pub fn and<FF, VV>(self, other: Query<FF, VV>) -> Filter
-    where
-        F: Field,
-        FF: Field,
-        V: Into<Bson>,
-        VV: Into<Bson>,
-    {
-        Filter::new().and(self).and(other)
-    }
 }
 
 impl<F, V> From<Query<F, V>> for Document
@@ -86,6 +64,21 @@ where
     }
 }
 
+impl<F, V> From<Query<F,V>> for Bson
+where
+    F: Field,
+    V: Into<Bson>,
+{
+    fn from(value: Query<F, V>) -> Self {
+        let name = F::NAME;
+        let op = value.op.as_str();
+        let v = value.v;
+        Bson::Document(doc! {
+            name: {op: v}
+        })
+    }
+}
+
 impl<F, V> AsFilter for Query<F, V>
 where
     F: Field,
@@ -96,80 +89,17 @@ where
     }
 }
 
+
 impl<T> Queryable for T where T: Field {}
-
-/// Filter
-pub enum Filter {
-    Or(Vec<Document>),
-    And(Vec<Document>),
-    None,
-}
-
-impl Filter {
-    /// Create a new filter
-    pub fn new() -> Self {
-        Self::None
-    }
-
-    /// Add `or` filter
-    pub fn or<F: Into<Document>>(mut self, filter: F) -> Self {
-        match self {
-            Self::None => Self::Or(vec![filter.into()]),
-            Self::Or(ref mut filters) => {
-                filters.push(filter.into());
-                self
-            }
-            Self::And(ref mut filters) => {
-                filters.push(filter.into());
-                self
-            }
-        }
-    }
-
-    /// Add `and` filter
-    pub fn and<F: Into<Document>>(mut self, filter: F) -> Self {
-        match self {
-            Self::None => Self::And(vec![filter.into()]),
-            Self::Or(ref mut filters) => {
-                filters.push(filter.into());
-                self
-            }
-            Self::And(ref mut filters) => {
-                filters.push(filter.into());
-                self
-            }
-        }
-    }
-}
-
-impl Default for Filter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<Filter> for Document {
-    fn from(value: Filter) -> Self {
-        match value {
-            Filter::Or(filters) => doc! {
-                "$or": filters
-            },
-            Filter::And(filters) => doc! {
-                "$and": filters
-            },
-            Filter::None => doc! {},
-        }
-    }
-}
-
-impl AsFilter for Filter {
-    fn as_filter(self) -> Document {
-        self.into()
-    }
-}
 
 impl AsFilter for () {
     fn as_filter(self) -> Document {
         doc! {}
+    }
+}
+
+impl AsFilter for Document {
+    fn as_filter(self) -> Document {
+        self
     }
 }

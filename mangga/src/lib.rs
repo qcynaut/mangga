@@ -4,11 +4,11 @@ mod traits;
 mod types;
 
 pub use types::{Error, Result};
+pub use bson;
 
 pub mod prelude {
     pub use crate::{
         db::{connect_database, get_database},
-        operations::Filter,
         traits::*,
         types::{is_id, ID, DateTime},
     };

@@ -1,8 +1,9 @@
 use crate::{
     db::get_database,
-    types::{BoxFut, ID},
+    types::{BoxFut, ID}, Result,
 };
-use bson::doc;
+use bson::{doc, Document};
+use futures::TryStreamExt;
 use mongodb::{options::IndexOptions, IndexModel};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -26,8 +27,24 @@ pub trait Model: Clone + Send + Sync + 'static {
     /// Get id
     fn id(&self) -> impl Into<ID>;
 
-    /// Get dsl of the model
-    fn dsl() -> impl Dsl<Self>;
+    /// Get mongodb collection
+    fn get_collection() -> Result<mongodb::Collection<Self>> {
+        Ok(get_database(Self::DB_NAME)?.collection(Self::MODEL_NAME))
+    }
+
+    /// Runs an aggregation pipeline
+    fn aggregate(pipeline: Vec<Document>) -> BoxFut<Vec<Document>> {
+        Box::pin(async move {
+            let db = get_database(Self::DB_NAME)?;
+            let col = db.collection::<Self>(Self::MODEL_NAME);
+            let res = col
+                .aggregate(pipeline)
+                .await?
+                .try_collect::<Vec<_>>()
+                .await?;
+            Ok(res)
+        })
+    }
 
     /// Setup the model
     fn setup() -> BoxFut<()> {

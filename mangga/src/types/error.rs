@@ -6,6 +6,9 @@ pub enum Error {
     /// MongoDB error
     #[error("MongoDB error: {0}")]
     MongoDB(#[from] mongodb::error::Error),
+    /// Not found error
+    #[error("Not found")]
+    NotFound,
     /// Init error
     #[error("Init error: {0}")]
     Init(String),

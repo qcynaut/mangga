@@ -1,14 +1,7 @@
+use change_case::upper_case;
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{
-    parse::Parse,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    Fields,
-    Ident,
-    Token,
-    Visibility,
-};
+use quote::{quote, ToTokens};
+use syn::{parse::Parse, punctuated::Punctuated, spanned::Spanned, Fields, Ident, Token};
 
 /// FieldIndex
 ///
@@ -83,12 +76,123 @@ impl Parse for FieldIndex {
     }
 }
 
+/// GraphqlRel
+///
+/// Represents the graphql relation of a field
+#[derive(Debug, Clone)]
+pub struct GraphqlRel {
+    pub name: Ident,
+    pub model: syn::Type,
+    pub ty: String,
+    pub field: Ident,
+}
+
+impl Parse for GraphqlRel {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let span = input.span();
+        let stream;
+        syn::braced!(stream in input);
+
+        let mut name = String::from("");
+        let mut model = None;
+        let mut ty = String::from("default");
+        let mut field = Ident::new("id", span);
+        let allowed_ty = vec!["array", "option", "default", "opt-array"];
+
+        while !stream.is_empty() {
+            let id = stream.parse::<syn::Ident>()?;
+            stream.parse::<syn::Token![:]>()?;
+            let id_str = id.to_string();
+            match &*id_str {
+                "name" => name = stream.parse::<syn::LitStr>()?.value(),
+                "model" => model = Some(stream.parse::<syn::Type>()?),
+                "ty" => {
+                    let mty = stream.parse::<syn::LitStr>()?.value();
+                    if !allowed_ty.contains(&mty.as_str()) {
+                        return Err(syn::Error::new_spanned(
+                            id,
+                            format!("Allowed types are: {}", allowed_ty.join(", ")),
+                        ));
+                    }
+                    ty = mty;
+                },
+                "field" => field = stream.parse::<Ident>()?,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        id,
+                        format!("unknown attribute `{}`", id_str),
+                    ))
+                }
+            }
+
+            if !stream.is_empty() {
+                stream.parse::<Token![,]>()?;
+            }
+        }
+
+        if name.is_empty() {
+            return Err(syn::Error::new(
+                span,
+                "name is required",
+            ));
+        }
+
+        let name = Ident::new(&name, proc_macro2::Span::call_site());
+        let model = model.ok_or_else(|| syn::Error::new(span, "model is required"))?;
+        let field = Ident::new(&upper_case(&field.to_string()), field.span());
+
+        Ok(GraphqlRel { name, model, ty, field })
+    }
+}
+
+/// FieldGraphql
+///
+/// Represents the graphql attributes of a field
+#[derive(Debug, Clone)]
+pub struct FieldGraphql {
+    pub input: bool,
+    pub output: bool,
+    pub rel: Option<GraphqlRel>,
+}
+
+impl Parse for FieldGraphql {
+    fn parse(stream: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut input = true;
+        let mut output = true;
+        let mut rel = None;
+
+        while !stream.is_empty() {
+            let id = stream.parse::<syn::Ident>()?;
+            stream.parse::<syn::Token![=]>()?;
+            let id_str = id.to_string();
+            match &*id_str {
+                "input" => input = stream.parse::<syn::LitBool>()?.value(),
+                "output" => output = stream.parse::<syn::LitBool>()?.value(),
+                "rel" => rel = Some(stream.parse::<GraphqlRel>()?),
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        id,
+                        format!("unknown attribute `{}`", id_str),
+                    ))
+                }
+            }
+
+            if !stream.is_empty() {
+                stream.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(FieldGraphql { input, output, rel })
+    }
+}
+
 /// FieldAttr
 ///
 /// Represents a field attribute
 #[derive(Debug, Clone)]
 pub struct FieldAttr {
     pub indexes: Vec<FieldIndex>,
+    pub graphql: FieldGraphql,
 }
 
 /// ItemField
@@ -143,7 +247,21 @@ impl ItemFields {
                 .map(|attr| attr.parse_args_with(FieldIndex::parse))
                 .collect::<syn::Result<Vec<_>>>()?;
 
-            let field_attr = FieldAttr { indexes };
+            let graphql = field
+                .attrs
+                .clone()
+                .into_iter()
+                .filter(|attr| attr.path().is_ident("graphql"))
+                .collect::<Vec<_>>();
+            let mut graphql_tokens = Punctuated::<_, Token![,]>::new();
+
+            for attr in graphql {
+                let list = attr.meta.require_list()?;
+                graphql_tokens.push(list.tokens.to_owned());
+            }
+
+            let graphql = syn::parse2(graphql_tokens.to_token_stream())?;
+            let field_attr = FieldAttr { indexes, graphql };
 
             let mut item_field = ItemField {
                 name: ident.to_string(),

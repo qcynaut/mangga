@@ -56,3 +56,51 @@ impl Parse for ItemAttrs {
         Ok(ItemAttrs { name, db_name })
     }
 }
+
+/// ItemGraphql
+/// 
+/// Represents the graphql attributes of a struct
+#[derive(Debug, Clone)]
+pub struct ItemGraphql {
+    pub input: bool,
+    pub output: bool,
+}
+
+impl Parse for ItemGraphql {
+    fn parse(stream: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut keys: HashSet<String> = HashSet::new();
+        let mut input = true;
+        let mut output = true;
+
+        while !stream.is_empty() {
+            let id = stream.parse::<syn::Ident>()?;
+            stream.parse::<syn::Token![=]>()?;
+            let id_str = id.to_string();
+            if keys.contains(&id_str) {
+                return Err(syn::Error::new_spanned(
+                    id,
+                    format!("duplicate attribute `{}`", id_str),
+                ));
+            }
+
+            keys.insert(id_str.clone());
+
+            match &*id_str {
+                "input" => input = stream.parse::<syn::LitBool>()?.value(),
+                "output" => output = stream.parse::<syn::LitBool>()?.value(),
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        id,
+                        format!("unknown attribute `{}`", id_str),
+                    ))
+                }
+            }
+
+            if !stream.is_empty() {
+                stream.parse::<syn::Token![,]>()?;
+            }
+        }
+
+        Ok(ItemGraphql { input, output })
+    }
+}

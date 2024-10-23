@@ -1,3 +1,4 @@
+use async_graphql::ScalarType;
 use chrono::{Days, FixedOffset, Months, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign};
@@ -49,6 +50,23 @@ impl<'de> Deserialize<'de> for DateTime {
     {
         bson::serde_helpers::chrono_datetime_as_bson_datetime::deserialize(deserializer)
             .map(Into::into)
+    }
+}
+
+#[async_graphql::Scalar]
+impl ScalarType for DateTime {
+    fn parse(value: async_graphql::Value) -> async_graphql::InputValueResult<Self> {
+        if let async_graphql::Value::String(s) = &value {
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+                return Ok(Self(dt.to_utc()));
+            }
+        }
+
+        Err(async_graphql::InputValueError::expected_type(value))
+    }
+
+    fn to_value(&self) -> async_graphql::Value {
+        async_graphql::Value::String(self.to_rfc3339())
     }
 }
 

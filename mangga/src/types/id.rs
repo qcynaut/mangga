@@ -1,6 +1,7 @@
+use async_graphql::ScalarType;
 use bson::{oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::{ops::{Deref, DerefMut}, str::FromStr};
 
 /// Type alias for id
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -96,3 +97,20 @@ impl IsID for ObjectId {}
 
 /// Function to check if the type is an id
 pub const fn is_id<T: IsID>() {}
+
+#[async_graphql::Scalar]
+impl ScalarType for ID {
+    fn parse(value: async_graphql::Value) -> async_graphql::InputValueResult<Self> {
+        if let async_graphql::Value::String(s) = &value {
+            if let Ok(id) = ID::from_str(s) {
+                return Ok(id);
+            }
+        }
+
+        Err(async_graphql::InputValueError::expected_type(value))
+    }
+
+    fn to_value(&self) -> async_graphql::Value {
+        async_graphql::Value::String(self.to_string())
+    }
+}
