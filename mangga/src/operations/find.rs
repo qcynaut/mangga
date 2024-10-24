@@ -1,4 +1,4 @@
-use crate::{db::get_database, traits::Model, types::BoxFut, Result};
+use crate::{db::get_database, traits::Model, types::BoxFut, Error, Result};
 use bson::Document;
 use futures::TryStreamExt;
 use mongodb::options::{FindOneOptions, FindOneOptionsBuilder, FindOptions, FindOptionsBuilder};
@@ -53,12 +53,29 @@ impl<M: Model> FindOne<M> {
     }
 }
 
+impl<M: Model> FindOne<M>
+where
+    M: for<'de> Deserialize<'de>,
+{
+    /// Get optional result
+    pub fn optional(self) -> BoxFut<Option<M>> {
+        let opts = self.opts;
+        let filter = self.filter;
+        Box::pin(async move {
+            let db = get_database(M::DB_NAME)?;
+            let col = db.collection(M::MODEL_NAME);
+            let res = col.find_one(filter).with_options(opts).await?;
+            Ok(res)
+        })
+    }
+}
+
 impl<M: Model> IntoFuture for FindOne<M>
 where
     M: for<'de> Deserialize<'de>,
 {
     type IntoFuture = FindOneFuture<M>;
-    type Output = Result<Option<M>>;
+    type Output = Result<M>;
 
     fn into_future(self) -> Self::IntoFuture {
         let opts = self.opts;
@@ -67,7 +84,11 @@ where
             let db = get_database(M::DB_NAME)?;
             let col = db.collection(M::MODEL_NAME);
             let res = col.find_one(filter).with_options(opts).await?;
-            Ok(res)
+            if let Some(res) = res {
+                Ok(res)
+            } else {
+                Err(Error::NotFound)
+            }
         }))
     }
 }
@@ -75,10 +96,10 @@ where
 /// FindOneFuture
 ///
 /// Represents the future of the find one operation
-pub struct FindOneFuture<M: Model>(BoxFut<Option<M>>);
+pub struct FindOneFuture<M: Model>(BoxFut<M>);
 
 impl<M: Model> Future for FindOneFuture<M> {
-    type Output = Result<Option<M>>;
+    type Output = Result<M>;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,

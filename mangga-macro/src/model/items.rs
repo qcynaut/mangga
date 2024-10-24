@@ -183,12 +183,7 @@ impl ToTokens for Item {
                         _ => {
                             let ty = quote! { #rel_model };
                             let inner = quote! {
-                                let res = #rel_model::dsl.find_one(#rel_model::#rel_field.eq(self.#field_ident.clone())).await?;
-                                if let Some(res) = res {
-                                    Ok(res)
-                                } else {
-                                    Err(::mangga::Error::NotFound)
-                                }
+                                #rel_model::dsl.find_one(#rel_model::#rel_field.eq(self.#field_ident.clone())).await
                             };
                             (ty, inner)
                         },

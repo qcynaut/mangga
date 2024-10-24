@@ -1,6 +1,7 @@
 use crate::{
     db::get_database,
-    types::{BoxFut, ID}, Result,
+    types::{BoxFut, ID},
+    Result,
 };
 use bson::{doc, Document};
 use futures::TryStreamExt;
@@ -76,7 +77,7 @@ pub trait Model: Clone + Send + Sync + 'static {
                 .filter(|n| local_indexes.contains(n))
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>();
-            let unmatch_indexes = local_indexes
+            let unmatch_indexes = all_indexes
                 .iter()
                 .filter(|n| !local_indexes.contains(n))
                 .map(|s| s.to_string())
@@ -86,7 +87,7 @@ pub trait Model: Clone + Send + Sync + 'static {
                 .filter(|n| !match_indexes.contains(n))
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>();
-
+            
             if !unmatch_indexes.is_empty() {
                 for name in unmatch_indexes {
                     col.drop_index(name).await?;
