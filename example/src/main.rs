@@ -1,114 +1,185 @@
+use bson::doc;
 use mangga::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[model("users", graphql, refs = {books: {target: book::doc, array: true, target_field: "user_id"}})]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Model, Serialize, Deserialize)]
+#[mangga(name = "users", db = "db1")]
+#[graphql()]
 pub struct User {
-    pub name: String,
-    #[model(index = {unique: true})]
+    #[serde(rename = "_id")]
+    pub id: ID,
+    #[index(unique = true)]
     pub email: String,
-    pub age: i32,
-    pub created_at: DateTime,
-}
-
-#[model("categories", graphql)]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Category {
     pub name: String,
-    pub description: String,
 }
 
-#[model("books", graphql)]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Model, Serialize, Deserialize)]
+#[mangga(name = "books", db = "db1")]
 pub struct Book {
+    #[serde(rename = "_id")]
+    pub id: ID,
     pub title: String,
-    pub description: String,
-    #[model(ref = {name: "user",target: user::doc, array: false})]
+    pub author: String,
+    #[index(score = 1)]
+    #[graphql(rel = {name: "user", model: User})]
     pub user_id: ID,
-    #[model(ref = {name: "category",target: category::doc, array: false})]
-    pub category_id: ID,
+    #[index(score = 1)]
+    #[graphql(rel = {name: "store", model: Store})]
+    pub store_id: ID,
+}
+
+#[derive(Debug, Clone, Model, Serialize, Deserialize)]
+#[mangga(name = "stores", db = "db1")]
+#[graphql()]
+pub struct Store {
+    #[serde(rename = "_id")]
+    pub id: ID,
+    pub name: String,
 }
 
 #[tokio::main]
-async fn main() {
-    dotenvy::dotenv().ok();
-    let db_uri = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let database = std::env::var("DATABASE_NAME").expect("DATABASE_NAME must be set");
-    connect_database(db_uri, database).await.unwrap();
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    connect_database("mongodb://localhost:27017", vec!["db1"]).await?;
+    User::setup().await?;
+    Book::setup().await?;
+    Store::setup().await?;
 
-    user::doc.init().await.unwrap();
+    clean().await?;
 
-    let users = vec![
-        User::new("John Doe", "j@j.com", 30, DateTime::now()),
-        User::new("Jane Doe", "ja@j.com", 29, DateTime::now()),
+    let default_users = vec![
+        User::new(ID::default(), "john@example.com", "John Doe"),
+        User::new(ID::default(), "jane@example.com", "Jane Doe"),
     ];
-    let categories = vec![
-        Category::new("Category 1", "Description 1"),
-        Category::new("Category 2", "Description 2"),
-    ];
+
+    User::dsl.insert_many(default_users.clone()).await?;
+
+    let first_store = Store::new(ID::default(), "Store 1");
+    first_store.insert().await?;
+    let second_store = Store::new(ID::default(), "Store 2");
+    second_store.insert().await?;
+
     let mut books = vec![];
-    for user in &users {
+
+    for user in default_users {
         books.push(Book::new(
-            "Book 1",
-            "Description 1",
-            user.id.clone(),
-            categories[0].id.clone(),
+            ID::default(),
+            "The Great Gatsby",
+            "F. Scott Fitzgerald",
+            user.id,
+            second_store.id,
         ));
         books.push(Book::new(
-            "Book 2",
-            "Description 2",
-            user.id.clone(),
-            categories[1].id.clone(),
+            ID::default(),
+            "To Kill a Mockingbird",
+            "Harper Lee",
+            user.id,
+            first_store.id,
+        ));
+        books.push(Book::new(
+            ID::default(),
+            "1984",
+            "George Orwell",
+            user.id,
+            first_store.id,
         ));
     }
-    user::doc.insert(users).execute().await.unwrap();
-    category::doc.insert(categories).execute().await.unwrap();
-    book::doc.insert(books).execute().await.unwrap();
 
-    let books = book::doc
-        .filter(book::title.eq("Book 1"))
-        .find()
-        .options(|opts| opts.sort(book::title.asc()).build())
-        .execute()
-        .await
-        .unwrap();
-    for book in books {
-        println!("{}", book.title);
+    Book::dsl.insert_many(books).await?;
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct ResBook {
+        _id: ID,
+        title: String,
+        author: String,
+        user_id: ID,
+        store_id: ID,
+        store: Store,
     }
 
-    book::doc::raw_filter("title", "$eq", "Book 1")
-        .update_many(BookUpdate::new().title("Book 0"))
-        .execute()
-        .await
-        .unwrap();
-
-    let books = book::doc
-        .find()
-        .options(|opts| opts.sort(book::title.asc()).build())
-        .execute()
-        .await
-        .unwrap();
-    for book in books {
-        println!("{}", book.title);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct Res {
+        _id: ID,
+        name: String,
+        books: Vec<ResBook>,
     }
 
-    book::doc
-        .update(BookUpdate::new().title("MyBook"))
-        .execute()
-        .await
-        .unwrap();
+    let res = User::aggregate(vec![
+        doc! {
+            "$match": {
+                "email": "john@example.com"
+            }
+        },
+        doc! {
+            "$lookup": {
+                "from": "books",
+                "localField": "_id",
+                "foreignField": "user_id",
+                "as": "books"
+            }
+        },
+        doc! {
+            "$lookup": {
+                "from": "stores",
+                "let": { "books": "$books" },
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$in": ["$_id", {
+                                    "$map": {
+                                        "input": "$$books",
+                                        "as": "book",
+                                        "in": "$$book.store_id"
+                                    }
+                                }]
+                            }
+                        }
+                    }
+                ],
+                "as": "stores"
+            }
+        },
+        doc! {
+            "$project": {
+                "_id": 1,
+                "name": 1,
+                "books": {
+                    "$map": {
+                        "input": "$books",
+                        "as": "book",
+                        "in": {
+                            "_id": "$$book._id",
+                            "title": "$$book.title",
+                            "author": "$$book.author",
+                            "user_id": "$$book.user_id",
+                            "store_id": "$$book.store_id",
+                            // filter store by id
+                            "store": {
+                                "$filter": {
+                                    "input": "$stores",
+                                    "as": "store",
+                                    "cond": {
+                                        "$eq": ["$$store._id", "$$book.store_id"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ])
+    .await?;
 
-    let books = book::doc
-        .find()
-        .options(|opts| opts.sort(book::title.asc()).build())
-        .execute()
-        .await
-        .unwrap();
-    for book in books {
-        println!("{:#?}", book);
-    }
+    println!("{:#?}", res);
+    clean().await?;
 
-    book::doc.delete().execute().await.unwrap();
-    user::doc.delete().execute().await.unwrap();
-    category::doc.delete().execute().await.unwrap();
+    Ok(())
+}
+
+async fn clean() -> Result<(), Box<dyn std::error::Error>> {
+    User::dsl.delete_many(()).await?;
+    Book::dsl.delete_many(()).await?;
+    Store::dsl.delete_many(()).await?;
+    Ok(())
 }

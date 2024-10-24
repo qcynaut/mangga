@@ -1,22 +1,18 @@
-pub use mangga_macro::*;
-pub use mongodb::{self, bson};
-pub use traits::*;
-pub use types::*;
-
+mod db;
+pub(crate) mod operations;
+mod traits;
 mod types;
 
-mod client;
-pub mod dsl;
-pub mod error;
-mod trait_impls;
-mod traits;
+pub use types::{Error, Result};
+pub use bson;
 
 pub mod prelude {
-    pub use super::{
-        client::{connect_database, get_database},
-        dsl::*,
+    pub use crate::{
+        db::{connect_database, get_database},
         traits::*,
-        types::*,
+        types::{is_id, ID, DateTime},
     };
-    pub use mangga_macro::*;
+    pub use bson;
+    pub use mangga_macro::Model;
+    pub use mongodb;
 }
