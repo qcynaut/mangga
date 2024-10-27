@@ -193,7 +193,7 @@ impl ToTokens for Item {
                         graphql_output.extend(quote! {
                             async fn #rel_name(&self, ctx: &::async_graphql::Context<'_>) -> #graphql_res<#rel_ty> {
                                 #check_fn(ctx).await?;
-                                #inner
+                                #inner.map_err(Into::into)
                             }
                         });
                     } else {
