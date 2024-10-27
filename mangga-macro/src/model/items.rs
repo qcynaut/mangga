@@ -199,7 +199,7 @@ impl ToTokens for Item {
                     } else {
                         graphql_output.extend(quote! {
                             async fn #rel_name(&self) -> #graphql_res<#rel_ty> {
-                                #inner
+                                #inner.map_err(Into::into)
                             }
                         });
                     }
