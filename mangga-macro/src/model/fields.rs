@@ -85,6 +85,7 @@ pub struct GraphqlRel {
     pub model: syn::Type,
     pub ty: String,
     pub field: Ident,
+    pub check_fn: Option<Ident>,
 }
 
 impl Parse for GraphqlRel {
@@ -97,6 +98,7 @@ impl Parse for GraphqlRel {
         let mut model = None;
         let mut ty = String::from("default");
         let mut field = Ident::new("id", span);
+        let mut check_fn = None;
         let allowed_ty = vec!["array", "option", "default", "opt-array"];
 
         while !stream.is_empty() {
@@ -117,6 +119,7 @@ impl Parse for GraphqlRel {
                     ty = mty;
                 },
                 "field" => field = stream.parse::<Ident>()?,
+                "check_fn" => check_fn = Some(stream.parse::<Ident>()?),
                 _ => {
                     return Err(syn::Error::new_spanned(
                         id,
@@ -141,7 +144,7 @@ impl Parse for GraphqlRel {
         let model = model.ok_or_else(|| syn::Error::new(span, "model is required"))?;
         let field = Ident::new(&upper_case(&field.to_string()), field.span());
 
-        Ok(GraphqlRel { name, model, ty, field })
+        Ok(GraphqlRel { name, model, ty, field, check_fn })
     }
 }
 

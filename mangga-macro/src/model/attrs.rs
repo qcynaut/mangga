@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use syn::parse::Parse;
+use syn::{parse::Parse, Ident};
 
 /// ItemAttrs
 ///
@@ -64,6 +64,7 @@ impl Parse for ItemAttrs {
 pub struct ItemGraphql {
     pub input: bool,
     pub output: bool,
+    pub result: Ident
 }
 
 impl Parse for ItemGraphql {
@@ -71,6 +72,7 @@ impl Parse for ItemGraphql {
         let mut keys: HashSet<String> = HashSet::new();
         let mut input = true;
         let mut output = true;
+        let mut result = None;
 
         while !stream.is_empty() {
             let id = stream.parse::<syn::Ident>()?;
@@ -88,6 +90,7 @@ impl Parse for ItemGraphql {
             match &*id_str {
                 "input" => input = stream.parse::<syn::LitBool>()?.value(),
                 "output" => output = stream.parse::<syn::LitBool>()?.value(),
+                "result" => result = Some(stream.parse::<Ident>()?),
                 _ => {
                     return Err(syn::Error::new_spanned(
                         id,
@@ -101,6 +104,8 @@ impl Parse for ItemGraphql {
             }
         }
 
-        Ok(ItemGraphql { input, output })
+        let result = result.unwrap_or_else(|| Ident::new("::mangga::Result", proc_macro2::Span::call_site()));
+
+        Ok(ItemGraphql { input, output, result })
     }
 }

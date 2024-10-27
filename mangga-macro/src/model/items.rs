@@ -93,6 +93,7 @@ impl ToTokens for Item {
         let mod_ident = self.mod_ident();
         let id_field_ident = &self.fields.id_field.ident;
         let graphql_input_ident = Ident::new(&format!("{}Input", ident), ident.span());
+        let graphql_res = &self.graphql_attrs.result;
 
         // builtin
         let mut builtin_args = Punctuated::<TokenStream, Token![,]>::new();
@@ -188,11 +189,20 @@ impl ToTokens for Item {
                             (ty, inner)
                         },
                     };
-                    graphql_output.extend(quote! {
-                        async fn #rel_name(&self) -> ::mangga::Result<#rel_ty> {
-                            #inner
-                        }
-                    });
+                    if let Some(check_fn) = rel.check_fn {
+                        graphql_output.extend(quote! {
+                            async fn #rel_name(&self, ctx: &::async_graphql::Context<'_>) -> #graphql_res<#rel_ty> {
+                                #check_fn(ctx).await?;
+                                #inner
+                            }
+                        });
+                    } else {
+                        graphql_output.extend(quote! {
+                            async fn #rel_name(&self) -> #graphql_res<#rel_ty> {
+                                #inner
+                            }
+                        });
+                    }
                 }
             }
         }
