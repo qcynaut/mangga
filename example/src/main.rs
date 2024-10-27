@@ -30,7 +30,7 @@ pub struct Book {
 
 #[derive(Debug, Clone, Model, Serialize, Deserialize)]
 #[mangga(name = "stores", db = "db1")]
-#[graphql()]
+#[graphql(result = Result)]
 pub struct Store {
     #[serde(rename = "_id")]
     pub id: ID,

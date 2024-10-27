@@ -1,5 +1,7 @@
+use proc_macro2::TokenStream;
+use quote::quote;
 use std::collections::HashSet;
-use syn::{parse::Parse, Ident};
+use syn::parse::Parse;
 
 /// ItemAttrs
 ///
@@ -47,10 +49,7 @@ impl Parse for ItemAttrs {
         }
 
         if name.is_empty() || db_name.is_empty() {
-            return Err(syn::Error::new(
-                span,
-                "name and db attributes are required",
-            ));
+            return Err(syn::Error::new(span, "name and db attributes are required"));
         }
 
         Ok(ItemAttrs { name, db_name })
@@ -58,13 +57,13 @@ impl Parse for ItemAttrs {
 }
 
 /// ItemGraphql
-/// 
+///
 /// Represents the graphql attributes of a struct
 #[derive(Debug, Clone)]
 pub struct ItemGraphql {
     pub input: bool,
     pub output: bool,
-    pub result: Ident
+    pub result: TokenStream,
 }
 
 impl Parse for ItemGraphql {
@@ -90,7 +89,7 @@ impl Parse for ItemGraphql {
             match &*id_str {
                 "input" => input = stream.parse::<syn::LitBool>()?.value(),
                 "output" => output = stream.parse::<syn::LitBool>()?.value(),
-                "result" => result = Some(stream.parse::<Ident>()?),
+                "result" => result = Some(stream.parse::<TokenStream>()?),
                 _ => {
                     return Err(syn::Error::new_spanned(
                         id,
@@ -104,8 +103,12 @@ impl Parse for ItemGraphql {
             }
         }
 
-        let result = result.unwrap_or_else(|| Ident::new("::mangga::Result", proc_macro2::Span::call_site()));
+        let result = result.unwrap_or_else(|| quote! {::mangga::Result});
 
-        Ok(ItemGraphql { input, output, result })
+        Ok(ItemGraphql {
+            input,
+            output,
+            result,
+        })
     }
 }
