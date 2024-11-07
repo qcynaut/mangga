@@ -1,4 +1,7 @@
-use super::{attrs::{ItemAttrs, ItemGraphql}, fields::ItemFields};
+use super::{
+    attrs::{ItemAttrs, ItemGraphql},
+    fields::ItemFields,
+};
 use change_case::{snake_case, upper_case};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -61,7 +64,15 @@ impl Item {
         }
 
         let attrs = syn::parse2::<ItemAttrs>(attr_tokens.to_token_stream())?;
-        let graphql_attrs = syn::parse2::<ItemGraphql>(graphql_attr_tokens.to_token_stream())?;
+        let graphql_attrs = if graphql_attr_tokens.is_empty() {
+            ItemGraphql {
+                input: false,
+                output: false,
+                result: quote! {::mangga::Result},
+            }
+        } else {
+            syn::parse2::<ItemGraphql>(graphql_attr_tokens.to_token_stream())?
+        };
         let fields = ItemFields::parse(struct_item.fields)?;
 
         Ok(Self {
@@ -108,7 +119,8 @@ impl ToTokens for Item {
             let field_ident = &field.ident;
             let field_ty = &field.ty;
             let field_name = &field.name;
-            let const_field_ident = Ident::new(&upper_case(&field_ident.to_string()), field_ident.span());
+            let const_field_ident =
+                Ident::new(&upper_case(&field_ident.to_string()), field_ident.span());
 
             // generate dsl
             dsl.extend(quote! {
@@ -146,7 +158,7 @@ impl ToTokens for Item {
                         self.#field_ident.clone()
                     }
                 });
-    
+
                 if let Some(rel) = field.attrs.graphql.rel.clone() {
                     let rel_model = rel.model;
                     let rel_field = rel.field;
@@ -158,7 +170,7 @@ impl ToTokens for Item {
                                 #rel_model::dsl.find_many(#rel_model::#rel_field.eq(self.#field_ident.clone())).await
                             };
                             (ty, inner)
-                        },
+                        }
                         "option" => {
                             let ty = quote! { Option<#rel_model> };
                             let inner = quote! {
@@ -169,7 +181,7 @@ impl ToTokens for Item {
                                 }
                             };
                             (ty, inner)
-                        },
+                        }
                         "opt-array" => {
                             let ty = quote! { Option<Vec<#rel_model>> };
                             let inner = quote! {
@@ -180,14 +192,14 @@ impl ToTokens for Item {
                                 }
                             };
                             (ty, inner)
-                        },
+                        }
                         _ => {
                             let ty = quote! { #rel_model };
                             let inner = quote! {
                                 #rel_model::dsl.find_one(#rel_model::#rel_field.eq(self.#field_ident.clone())).await
                             };
                             (ty, inner)
-                        },
+                        }
                     };
                     if let Some(check_fn) = rel.check_fn {
                         graphql_output.extend(quote! {

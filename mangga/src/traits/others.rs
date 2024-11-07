@@ -45,11 +45,11 @@ pub trait Queryable: Field + Sized {
     }
 
     /// Create `in` query
-    fn is_in<T: Into<Self::Type>, V: IntoIterator<Item = T>>(
+    fn is_in<V: IntoIterator<Item = Self::Type>>(
         self,
         value: V,
     ) -> Query<Self, Vec<Self::Type>> {
-        Query::new(Operator::In, value.into_iter().map(Into::into).collect())
+        Query::new(Operator::In, value.into_iter().collect())
     }
 
     /// Create `nin` query
