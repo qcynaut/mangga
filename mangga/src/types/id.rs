@@ -7,6 +7,13 @@ use std::{ops::{Deref, DerefMut}, str::FromStr};
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ID(ObjectId);
 
+impl ID {
+    /// Create a new leading zero id
+    pub fn zeros() -> Self {
+        Self(ObjectId::from([0; 12]))
+    }
+}
+
 impl std::fmt::Debug for ID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
