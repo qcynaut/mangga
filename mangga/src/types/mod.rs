@@ -10,4 +10,4 @@ mod datetime;
 /// BoxFut
 ///
 /// Type alias for futures
-pub(crate) type BoxFut<T> = Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>;
+pub(crate) type BoxFut<T> = Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + Sync + 'static>>;
