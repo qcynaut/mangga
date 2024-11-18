@@ -1,4 +1,5 @@
 use async_graphql::ScalarType;
+use bson::Bson;
 use chrono::{Days, FixedOffset, Months, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign};
@@ -50,6 +51,18 @@ impl<'de> Deserialize<'de> for DateTime {
     {
         bson::serde_helpers::chrono_datetime_as_bson_datetime::deserialize(deserializer)
             .map(Into::into)
+    }
+}
+
+impl From<DateTime> for bson::DateTime {
+    fn from(value: DateTime) -> Self {
+        bson::DateTime::from(value.0)
+    }
+}
+
+impl From<DateTime> for Bson {
+    fn from(value: DateTime) -> Self {
+        Bson::DateTime(value.0.into())
     }
 }
 
