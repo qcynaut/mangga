@@ -154,6 +154,7 @@ impl ToTokens for Item {
 
             if field.attrs.graphql.output {
                 graphql_output.extend(quote! {
+                    #[tracing::instrument(skip(self), level = tracing::Level::TRACE)]
                     async fn #field_ident(&self) -> #field_ty {
                         self.#field_ident.clone()
                     }
@@ -203,6 +204,7 @@ impl ToTokens for Item {
                     };
                     if let Some(check_fn) = rel.check_fn {
                         graphql_output.extend(quote! {
+                            #[tracing::instrument(skip(self, ctx), level = tracing::Level::TRACE)]
                             async fn #rel_name(&self, ctx: &::async_graphql::Context<'_>) -> #graphql_res<#rel_ty> {
                                 #check_fn(ctx).await?;
                                 #inner.map_err(Into::into)
@@ -210,6 +212,7 @@ impl ToTokens for Item {
                         });
                     } else {
                         graphql_output.extend(quote! {
+                            #[tracing::instrument(skip(self), level = tracing::Level::TRACE)]
                             async fn #rel_name(&self) -> #graphql_res<#rel_ty> {
                                 #inner.map_err(Into::into)
                             }

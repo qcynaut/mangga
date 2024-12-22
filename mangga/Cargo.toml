@@ -16,7 +16,8 @@ bson = { version = "2.13.0", features = ["chrono-0_4"] }
 chrono = "0.4.38"
 futures = "0.3.31"
 mangga-macro = { path = "../mangga-macro" }
-mongodb = "3.1.0"
+mongodb = { version = "3.1.0", features = ["tracing-unstable"] }
 once_cell = "1.20.2"
 serde = { version = "1.0.210", features = ["derive"] }
-thiserror = "1.0.64"
+thiserror = "2.0.9"
+tracing = "0.1.41"

@@ -29,11 +29,13 @@ pub trait Model: Clone + Send + Sync + 'static {
     fn id(&self) -> impl Into<ID>;
 
     /// Get mongodb collection
+    #[tracing::instrument(level = tracing::Level::DEBUG)]
     fn get_collection() -> Result<mongodb::Collection<Self>> {
         Ok(get_database(Self::DB_NAME)?.collection(Self::MODEL_NAME))
     }
 
     /// Runs an aggregation pipeline
+    #[tracing::instrument(level = tracing::Level::DEBUG)]
     fn aggregate(pipeline: Vec<Document>) -> BoxFut<Vec<Document>> {
         Box::pin(async move {
             let db = get_database(Self::DB_NAME)?;
@@ -48,6 +50,7 @@ pub trait Model: Clone + Send + Sync + 'static {
     }
 
     /// Setup the model
+    #[tracing::instrument(level = tracing::Level::DEBUG)]
     fn setup() -> BoxFut<()> {
         Box::pin(async move {
             let db = get_database(Self::DB_NAME)?;
@@ -87,7 +90,7 @@ pub trait Model: Clone + Send + Sync + 'static {
                 .filter(|n| !match_indexes.contains(n))
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>();
-            
+
             if !unmatch_indexes.is_empty() {
                 for name in unmatch_indexes {
                     col.drop_index(name).await?;
